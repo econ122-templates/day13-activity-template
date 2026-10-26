@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 ```{r packages, include=FALSE, eval=TRUE}
-mypacks <- c("ggplot2","dplyr","ISLR2","class")
+mypacks <- c("ggplot2","dplyr","tidyr","ISLR2","class")
 packs <- installed.packages()
 install.me <- mypacks[!(mypacks %in% packs[,"Package"])]
 if (length(install.me) >= 1) install.packages(install.me, repos = "http://cran.us.r-project.org")
@@ -134,8 +134,10 @@ results
 
 Then plot both error rates against K, one line each.
 
-* To get two lines with a legend, give each `geom_line()` its own `y` and a
-  label for the color inside `aes()`, e.g. `aes(y = train_error, color = "Training")`.
+* Same idea as Day 9's training vs test MSE plot: the two error rates sit in
+  separate columns, so use `pivot_longer()` first to stack them into one
+  column, plus a column that says which set each row is. Then map that new
+  column to color.
 * Add `scale_x_log10()`. Without it, K = 1 to 25 are squeezed into the left
   edge of the plot.
 
