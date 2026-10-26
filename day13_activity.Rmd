@@ -1,0 +1,224 @@
+---
+title: "Day 13: K-Nearest Neighbors — In-Class Activity"
+subtitle: "Is this college private? KNN vs logistic regression"
+author: "Econ 122"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r packages, include=FALSE, eval=TRUE}
+mypacks <- c("ggplot2","dplyr","ISLR2","class")
+packs <- installed.packages()
+install.me <- mypacks[!(mypacks %in% packs[,"Package"])]
+if (length(install.me) >= 1) install.packages(install.me, repos = "http://cran.us.r-project.org")
+lapply(mypacks, library, character.only=TRUE)
+```
+
+## Introduction
+
+Back to the college-search website from Day 12: predict whether a college is
+**private** from numbers the site still has. On Day 12 you used logistic
+regression. Today you'll try KNN and see which one does better on colleges it
+hasn't seen.
+
+Same data and variables as Day 12:
+
+| Variable | Meaning |
+|---|---|
+| `Private` | `Yes` if the college is private, `No` if public |
+| `tuition` | out-of-state tuition, in **thousands** of dollars |
+| `undergrad` | number of full-time undergraduates, in **thousands** |
+
+**Estimated time: 40 minutes.** The goal for today is **Parts 1–4**. If you
+finish them, keep going with the **Bonus** section at the end. If you don't
+reach the Bonus, that's completely fine.
+
+Each task ends with a question in *italics*. Write a sentence or two for each.
+
+```{r load}
+data(College)
+College <- College %>%
+  mutate(tuition = Outstate / 1000, undergrad = F.Undergrad / 1000)
+```
+
+---
+
+## Part 1: The Benchmark to Beat (7 minutes)
+
+### Task 1.1: Train and test sets
+
+KNN's training error is useless for choosing a model (you'll see why in Part 2),
+so today we score every model on colleges it **didn't** see. This chunk puts 500
+colleges in a training set and the other 277 in a test set. Run it.
+
+```{r split}
+set.seed(122)
+train_rows <- sample(nrow(College), 500)
+train <- College[train_rows, ]
+test  <- College[-train_rows, ]
+```
+
+### Task 1.2: Logistic regression and the baseline
+
+1. Fit `Private ~ tuition + undergrad` on `train` with `glm()`, as on Day 12.
+2. Predict the test colleges (`predict(fit, test, type = "response")`), label
+   them `"Yes"` above 0.5, and compute the **test error rate**.
+3. Compute the test error rate of the baseline that calls **every** college
+   private.
+
+```{r task1_2}
+# Your code here
+
+```
+
+*What are the two test error rates? These are the numbers KNN has to beat.*
+
+---
+
+## Part 2: KNN with K = 1 (8 minutes)
+
+### Task 2.1: One neighbor
+
+`knn()` from the `class` package wants the predictors as their own tables, with
+no outcome column. Run this chunk to make them:
+
+```{r knn_inputs}
+train_X <- train %>% select(tuition, undergrad)
+test_X  <- test %>% select(tuition, undergrad)
+```
+
+Then `knn(train_X, test_X, cl = train$Private, k = 1)` returns a predicted
+`Yes`/`No` for every test college.
+
+1. Compute the **test** error rate for K = 1.
+2. Compute the **training** error rate for K = 1: predict the training
+   colleges themselves by passing `train_X` as the second argument.
+
+```{r task2_1}
+# Your code here
+
+```
+
+*Why is the training error rate exactly 0? How does K = 1's test error rate
+compare to logistic regression and to the baseline?*
+
+---
+
+## Part 3: Choosing K (15 minutes)
+
+### Task 3.1: Try many K's
+
+Complete the loop below. It works like the loops on Days 9 and 11: `results`
+has one row per K, and each pass of the loop fills one row. Inside the loop,
+`k_values[i]` is the K for this pass. Use your Part 2 code as a model.
+
+```{r task3_1}
+k_values <- c(1, 3, 5, 11, 15, 25, 51, 101, 201)
+results <- tibble(K = k_values, train_error = NA, test_error = NA)
+
+set.seed(1)   # knn() breaks rare ties at random; this makes them repeatable
+for (i in 1:length(k_values)) {
+  # 1. Predict the training colleges with K = k_values[i], and store the
+  #    training error rate in results$train_error[i]
+
+  # 2. Predict the test colleges with K = k_values[i], and store the
+  #    test error rate in results$test_error[i]
+
+}
+
+results
+```
+
+Then plot both error rates against K, one line each.
+
+* To get two lines with a legend, give each `geom_line()` its own `y` and a
+  label for the color inside `aes()`, e.g. `aes(y = train_error, color = "Training")`.
+* Add `scale_x_log10()`. Without it, K = 1 to 25 are squeezed into the left
+  edge of the plot.
+
+```{r task3_1_plot}
+# Your code here
+
+```
+
+*Which K has the lowest test error? Does the best KNN beat logistic regression
+from Part 1? If you had to pick K using the training error instead, which K
+would you pick, and why would that be a mistake?*
+
+*What happens at K = 201? Explain using what a vote among 201 of the 500
+training colleges looks like (about 72% of them are private).*
+
+---
+
+## Part 4: Dollars vs Thousands (10 minutes)
+
+### Task 4.1: Change the units
+
+So far both predictors were in thousands. Now use tuition in plain **dollars**
+(`Outstate`) and keep `undergrad` in thousands. Run KNN with K = 11 and compute
+the test error rate.
+
+```{r task4_1}
+train_X_dollars <- train %>% select(Outstate, undergrad)
+test_X_dollars  <- test %>% select(Outstate, undergrad)
+
+# Your code here
+
+```
+
+*The colleges and their information are exactly the same. Why did the error rate
+change? Which variable now decides who counts as a "nearest" neighbor?*
+
+### Task 4.2: Standardize
+
+`scale()` standardizes each column: subtract its mean, divide by its standard
+deviation.
+
+1. Standardize `College %>% select(Outstate, undergrad)` with `scale()`.
+2. Split the result into training and test rows with `train_rows`, the same
+   way Task 1.1 split `College`.
+3. Run KNN with K = 11 and compute the test error rate.
+
+```{r task4_2}
+# Your code here
+
+```
+
+*What is the test error rate now? Would it change if you measured tuition in
+cents instead? Why or why not?*
+
+---
+
+## Bonus (optional)
+
+Work on these if you finish the main questions.
+
+### Bonus 1: A different split
+
+Change the seed in the `split` chunk from 122 to another number and rerun
+Parts 1–3.
+
+*Is the best K the same? Does KNN still tie or beat logistic regression? What
+does this say about trusting a single train/test split? (Day 14 is about this.)*
+
+### Bonus 2: More predictors
+
+Standardize `Outstate`, `undergrad`, `Grad.Rate`, `perc.alumni`, and
+`S.F.Ratio`, and rerun KNN with K = 11. Fit the matching logistic regression too
+(logistic regression doesn't need standardizing).
+
+```{r bonus2}
+# Your code here
+
+```
+
+*Did the extra predictors help either method on the test set?*
+
+### Bonus 3: Which would you ship?
+
+*The two methods have about the same test error. Which would you put on the
+website, and why? What could each one tell a user who asks "why do you think
+this college is private?"*
